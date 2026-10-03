@@ -235,6 +235,9 @@ function createMockExtensionApi(extensionEvents = createEventBus()) {
 			getAllTools() {
 				return [];
 			},
+			getActiveTools() {
+				return [];
+			},
 		} as any,
 	};
 }
@@ -4301,6 +4304,7 @@ describe("subagent-done.ts", () => {
 			const { api, registeredShortcuts, eventHandlers } =
 				createMockExtensionApi();
 			api.getAllTools = () => [{ name: "read" }, { name: "bash" }];
+			api.getActiveTools = () => ["read"];
 			subagentDoneExtension(api);
 			assert.deepEqual(registeredShortcuts, []);
 
@@ -4334,9 +4338,26 @@ describe("subagent-done.ts", () => {
 				`widget must render one compact line: ${JSON.stringify(lines)}`,
 			);
 			const rendered = lines[0];
+			assert.ok(!rendered.includes("bash"));
+			assert.ok(!rendered.includes("denied"));
+			api.getActiveTools = () => ["web_search", "read", "firecrawl_fetch"];
+			const narrowLines = widget.render(50);
+			assert.equal(narrowLines.length, 1);
+			assert.ok(narrowLines[0].includes("…) (3 tools)"));
+			assert.ok(visibleWidth(narrowLines[0]) <= 50);
+			const wideLine = widget.render(100)[0];
 			assert.ok(
-				rendered.includes("[shortcut-test-agent] — 2 tools · 2 denied"),
-				`widget must show tool and denied counts: ${JSON.stringify(rendered)}`,
+				wideLine.includes(
+					"[shortcut-test-agent] (firecrawl_fetch,read,web_search)",
+				),
+			);
+			assert.ok(!wideLine.includes("tools:"));
+			assert.ok(!wideLine.includes("(3 tools)"));
+			api.getActiveTools = () => [];
+			assert.ok(widget.render(80)[0].includes("[shortcut-test-agent] (none)"));
+			assert.ok(
+				rendered.includes("[shortcut-test-agent] (read)"),
+				`widget must show active tool names: ${JSON.stringify(rendered)}`,
 			);
 			assert.equal(
 				rendered.includes("Ctrl+J"),

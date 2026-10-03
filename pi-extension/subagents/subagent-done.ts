@@ -4,7 +4,7 @@
  * - Provides a `subagent_done` tool for interactive agents to self-terminate
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { Box, Text } from "@earendil-works/pi-tui";
+import { Box, truncateToWidth } from "@earendil-works/pi-tui";
 import { Type } from "@sinclair/typebox";
 import { writeFileSync } from "node:fs";
 import {
@@ -123,21 +123,10 @@ function findUnsettledPersistentTask(
 	);
 }
 
-export function parseDeniedTools(rawValue: string | undefined): string[] {
-	return (rawValue ?? "")
-		.split(",")
-		.map((value) => value.trim())
-		.filter(Boolean);
-}
-
 export default function (pi: ExtensionAPI) {
-	let toolNames: string[] = [];
-	let denied: string[] = [];
-
 	// Read subagent identity from env vars (set by parent orchestrator)
 	const subagentName = process.env.PI_SUBAGENT_NAME ?? "";
 	const subagentAgent = process.env.PI_SUBAGENT_AGENT ?? "";
-	const deniedToolsValue = process.env.PI_DENY_TOOLS;
 	const autoExit = process.env.PI_SUBAGENT_AUTO_EXIT === "1";
 	const persistent = process.env.PI_SUBAGENT_PERSISTENT === "1";
 	const generation = process.env.PI_SUBAGENT_GENERATION_ID ?? "";
@@ -171,15 +160,14 @@ export default function (pi: ExtensionAPI) {
 					? theme.bold(theme.fg("accent", `[${label}]`))
 					: "";
 
-				const countInfo = theme.fg("dim", ` — ${toolNames.length} tools`);
-				const deniedInfo =
-					denied.length > 0
-						? theme.fg("dim", " · ") +
-							theme.fg("error", `${denied.length} denied`)
-						: "";
-
-				const content = new Text(`${agentTag}${countInfo}${deniedInfo}`, 0, 0);
-				box.addChild(content);
+				box.addChild({
+					render(width: number) {
+						const tools = pi.getActiveTools().sort();
+						const line = `${agentTag}${theme.fg("dim", ` (${tools.join(",") || "none"})`)}`;
+						return [truncateToWidth(line, width, `…) (${tools.length} tools)`)];
+					},
+					invalidate() {},
+				});
 
 				return box;
 			},
@@ -197,10 +185,6 @@ export default function (pi: ExtensionAPI) {
 	pi.on("session_start", (_event, ctx) => {
 		sessionContext = ctx;
 		recorder.sessionStart();
-		const tools = pi.getAllTools();
-		toolNames = tools.map((t) => t.name).sort();
-		denied = parseDeniedTools(deniedToolsValue);
-
 		renderWidget(ctx, null);
 	});
 

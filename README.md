@@ -1085,11 +1085,13 @@ spawning: false
 
 ## Tools Widget
 
-Every sub-agent session displays a compact one-line tools widget summarizing available and denied tools:
+Every sub-agent session displays a compact one-line tools widget listing the active tools declared to the model:
 
 ```
-[scout] — 12 tools · 4 denied
+[scout] (bash,read)
 ```
+
+Tool names are sorted, separated by commas without spaces, and enclosed in parentheses. Long lists are truncated to fit the terminal width, with an ellipsis and the total tool count (for example, `… (12 tools)`). If no tools are active, the widget shows `none` after the agent label.
 
 ---
 
